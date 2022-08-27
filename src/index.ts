@@ -22,11 +22,14 @@ function uuidv4() {
 }
 
 socket.on('connection', function (ws: any) {
+  console.log('conn');
+
   let child: ChildProcess | null = null;
 
   ws.on('message', async (message: string) => {
     const filename = uuidv4();
-    const filepath = `/tmp/${filename}.js`;
+    const filepath = `./tmp/${filename}.js`;
+    console.log(message);
 
     if (message === 'EXIT' && child !== null) {
       try {
@@ -62,7 +65,7 @@ socket.on('connection', function (ws: any) {
     });
 
     child?.stdout?.on('end', async () => {
-      await deleteFile(filepath);
+      // await deleteFile(filepath);
       ws.send(`--- end ---`);
     });
   });

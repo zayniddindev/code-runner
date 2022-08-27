@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <form name="publish"> 
+      <textarea
+        name="message"
+        id="code"
+        cols="30"
+        rows="10"
+        oninput="writeCode(this)"
+      ></textarea>
+
+      <button id="send" type="submit">Send!</button>
+    </form>
+
+    <div id="messages"></div>
+    <script>
+      let code;
+      let socket = new WebSocket("ws://localhost:3000");
+      socket.onopen = function (e) {
+        console.log("Conn");
+      };
+
+      socket.onmessage = function (e) {
+        let message = e.data;
+
+        let messageElem = document.createElement("div");
+        messageElem.textContent = message;
+        document.getElementById("messages").prepend(messageElem);
+      };
+
+      function writeCode(e) {
+        code = e.value;
+      }
+
+      const button = document.getElementById("send");
+      console.log(button);
+
+      document.forms.publish.onsubmit = function () {
+        let outgoingMessage = this.message.value;
+
+        socket.send(outgoingMessage);
+        return false;
+      };
+
+    //   function sendMessage(e) {
+    //     e.preventDefault();
+    //     console.log(code);
+    //     socket.send(code);
+    //   }
+    </script>
+  </body>
+</html>

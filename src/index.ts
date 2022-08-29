@@ -1,17 +1,17 @@
-const serverPort: number = 3000;
-
 import { Server as WebSocketServer } from 'ws';
+// eslint-disable-next-line no-unused-vars
 import { fork, ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
+import { filter } from './filter/filter';
 
+const serverPort: number = 3000;
 const socket = new WebSocketServer({ port: serverPort });
 const writeFile = promisify(fs.writeFile);
 const deleteFile = promisify(fs.unlink);
 
 console.log('starting');
 
-// eslint-disable-next-line func-style
 function uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     // eslint-disable-next-line no-bitwise
@@ -31,42 +31,50 @@ socket.on('connection', function (ws: any) {
     const filepath = `./tmp/${filename}.js`;
     console.log(message);
 
+    const restrictedKeyword = filter(message);
+
     if (message === 'EXIT' && child !== null) {
       try {
         child.kill();
         ws.send(`--- end ---`);
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.log(error); // Useful in the docker logs
         ws.send(error);
       }
 
       return;
+    } else if (restrictedKeyword) {
+      try {
+        ws.send(`Restricted keyword: ${restrictedKeyword}`);
+      } catch (error) {
+        console.log(error);
+        ws.send(error);
+      }
+    } else {
+      const fullCode = `(async () => {
+        ${message}
+      })()`;
+
+      await writeFile(filepath, fullCode);
+
+      child = fork(filepath, [], {
+        silent: true,
+      });
+
+      child?.stdout?.on('data', (data) => {
+        const output = data.toString();
+        ws.send(output);
+      });
+
+      child?.stderr?.on('data', (data) => {
+        const output = data.toString();
+        ws.send(output);
+      });
+
+      child?.stdout?.on('end', async () => {
+        await deleteFile(filepath);
+        ws.send(`--- end ---`);
+      });
     }
-
-    const fullCode = `(async () => {
-      ${message}
-    })()`;
-
-    await writeFile(filepath, fullCode);
-
-    child = fork(filepath, [], {
-      silent: true,
-    });
-
-    child?.stdout?.on('data', (data) => {
-      const output = data.toString();
-      ws.send(output);
-    });
-
-    child?.stderr?.on('data', (data) => {
-      const output = data.toString();
-      ws.send(output);
-    });
-
-    child?.stdout?.on('end', async () => {
-      // await deleteFile(filepath);
-      ws.send(`--- end ---`);
-    });
   });
 });
